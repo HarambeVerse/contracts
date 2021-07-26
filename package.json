@@ -1,0 +1,84 @@
+{
+  "name": "@harambeverse/contracts",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "compile": "npx hardhat compile && npx hardhat size-contracts",
+    "deploy:localhost": "npx hardhat run parkedContracts/scripts/deployment/handhat.ts --network localhost",
+    "createLottery:localhost": "npx hardhat run parkedContracts/scripts/tasks/lottery/createLottery.ts --network localhost",
+    "test": "npx hardhat parkedContracts/test",
+    "lint:prettier": "prettier . --check",
+    "lint:eslint": "eslint . --ext .ts",
+    "lint:eslint:fix": "eslint . --ext .ts --fix",
+    "lint:solhint": "solhint -f table contracts/**/*.sol"
+  },
+  "author": "",
+  "lint-staged": {
+    "*.{ts,sol,yaml}": [
+      "prettier --write"
+    ],
+    "*.{ts,tsx}": [
+      "eslint --cache --fix",
+      "stylelint --cache"
+    ]
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
+    }
+  },
+  "devDependencies": {
+    "@boringcrypto/boring-solidity": "boringcrypto/BoringSolidity#e06e943",
+    "@commitlint/cli": "12.1.4",
+    "@nomiclabs/hardhat-ethers": "2.0.2",
+    "@nomiclabs/hardhat-etherscan": "2.1.4",
+    "@nomiclabs/hardhat-waffle": "2.0.1",
+    "@sanshuinudev/commitlint-config": "1.0.0",
+    "@sanshuinudev/eslint-config": "1.0.0",
+    "@sanshuinudev/prettier-config": "1.0.0",
+    "@typechain/ethers-v5": "7.0.1",
+    "@typechain/hardhat": "2.2.0",
+    "@types/chai": "4.2.21",
+    "@types/jest": "26.0.23",
+    "@types/mocha": "8.2.3",
+    "@types/node": "16.3.3",
+    "@typescript-eslint/eslint-plugin": "4.28.0",
+    "chai": "4.3.4",
+    "dotenv": "10.0.0",
+    "eslint": "7.29.0",
+    "eslint-plugin-cypress": "2.11.3",
+    "eslint-plugin-import": "2.23.4",
+    "eslint-plugin-jest": "24.3.6",
+    "eslint-plugin-jsx-a11y": "6.4.1",
+    "eslint-plugin-prettier": "3.4.0",
+    "eslint-plugin-react": "7.24.0",
+    "eslint-plugin-react-hooks": "4.2.0",
+    "eslint-plugin-sort-destructure-keys": "1.3.5",
+    "eslint-plugin-sort-keys-fix": "1.1.1",
+    "eslint-plugin-typescript-sort-keys": "1.7.0",
+    "ethereum-abi-types-generator": "1.1.7",
+    "ethereum-waffle": "3.4.0",
+    "ethers": "5.4.1",
+    "hardhat": "2.4.3",
+    "hardhat-gas-reporter": "1.0.4",
+    "jest": "27.0.6",
+    "lint-staged": "11.0.0",
+    "prettier": "2.3.2",
+    "prettier-plugin-solidity": "1.0.0-beta.13",
+    "solhint": "3.3.6",
+    "solhint-plugin-prettier": "0.0.5",
+    "ts-generator": "0.1.1",
+    "ts-node": "10.0.0",
+    "typechain": "5.1.2",
+    "typescript": "4.3.5",
+    "yarn-upgrade-all": "0.5.4"
+  },
+  "dependencies": {
+    "@chainlink/contracts": "0.2.0",
+    "@chainlink/token": "1.1.0",
+    "@openzeppelin/contracts": "4.2.0",
+    "hardhat-contract-sizer": "2.0.3"
+  }
+}

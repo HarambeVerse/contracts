@@ -1,0 +1,3 @@
+{
+  "extends": ["@sanshuinudev/commitlint-config"]
+}

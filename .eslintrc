@@ -1,0 +1,14 @@
+{
+  "extends": "@sanshuinudev/eslint-config/base",
+  "parserOptions": {
+    "project": "./tsconfig.json"
+  },
+  "rules": {
+    "prefer-const": "off",
+    "prefer-destructuring": "off",
+    "eqeqeq": "off",
+    "import/no-mutable-exports": "off",
+    "func-names": "off",
+    "jest/valid-expect": "off"
+  }
+}
