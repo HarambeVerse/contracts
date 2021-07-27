@@ -117,6 +117,14 @@ contract Duck is ERC20('Duck', 'DUCK'), DuckAccessControl {
     _moveDelegates(address(0), _delegates[_to], _amount);
   }
 
+  /// @notice burn an amount from an account to burner address only can be ran by burner
+  /// @param _from The address to mint to
+  /// @param _amount The amount to mint
+  function burn(address _from, uint256 _amount) public virtual onlyBurner {
+    _burn(_from, _amount);
+    _moveDelegates(address(0), _delegates[_from], _amount);
+  }
+
   /// @notice Delegate votes from `msg.sender` to `_delegatee`
   /// @param _delegatee The address to delegate votes to
   function delegate(address _delegatee) external virtual {
