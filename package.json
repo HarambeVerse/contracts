@@ -5,9 +5,7 @@
   "main": "index.js",
   "scripts": {
     "compile": "npx hardhat compile && npx hardhat size-contracts",
-    "deploy:localhost": "npx hardhat run parkedContracts/scripts/deployment/handhat.ts --network localhost",
-    "createLottery:localhost": "npx hardhat run parkedContracts/scripts/tasks/lottery/createLottery.ts --network localhost",
-    "test": "npx hardhat parkedContracts/test",
+    "test": "npx hardhat test",
     "lint:prettier": "prettier . --check",
     "lint:eslint": "eslint . --ext .ts",
     "lint:eslint:fix": "eslint . --ext .ts --fix",

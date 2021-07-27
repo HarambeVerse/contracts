@@ -7,8 +7,6 @@
     "outDir": "dist",
     "resolveJsonModule": true
   },
-  "include": [
-    "./parkedContracts/scripts",
-    "./parkedContracts/test", "utils", "contracts"],
+  "include": ["./test", "./contracts"],
   "files": ["./hardhat.config.ts"]
 }
