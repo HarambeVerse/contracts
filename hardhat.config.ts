@@ -1,20 +1,20 @@
+// eslint-disable import/no-extraneous-dependencies
 import { task } from 'hardhat/config';
 import 'hardhat-contract-sizer';
-
 import { config as dotenvConfig } from 'dotenv';
+
 import { resolve } from 'path';
-dotenvConfig({ path: resolve(__dirname, './.env') });
 
 import { HardhatUserConfig } from 'hardhat/types';
-import { NetworkUserConfig } from 'hardhat/types';
 
-import '@nomiclabs/hardhat-waffle';
 import '@typechain/hardhat';
 import '@nomiclabs/hardhat-ethers';
 import '@nomiclabs/hardhat-waffle';
-
 import 'hardhat-gas-reporter';
 import '@nomiclabs/hardhat-etherscan';
+import { accounts } from './test-accounts';
+
+dotenvConfig({ path: resolve(__dirname, './.env') });
 
 const chainIds = {
   ganache: 1337,
@@ -29,20 +29,9 @@ const chainIds = {
 const MNEMONIC = process.env.MNEMONIC || '';
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY || '';
 const INFURA_API_KEY = process.env.INFURA_API_KEY || '';
-const ALCHEMY_KEY = process.env.ALCHEMY_KEY || '';
-
-// This is a sample Hardhat task. To learn how to create your own go to
-// https://hardhat.org/guides/create-task.html
-task('accounts', 'Prints the list of accounts', async (args, hre) => {
-  const accounts = await hre.ethers.getSigners();
-
-  for (const account of accounts) {
-    console.log(await account.getAddress());
-  }
-});
 
 function createTestnetConfig(network: keyof typeof chainIds) {
-  const url: string = 'https://' + network + '.infura.io/v3/' + INFURA_API_KEY;
+  const url = `https://${network}.infura.io/v3/${INFURA_API_KEY}`;
   return {
     accounts: {
       count: 10,
@@ -60,16 +49,22 @@ function createTestnetConfig(network: keyof typeof chainIds) {
 
 const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
+  etherscan: {
+    apiKey: ETHERSCAN_API_KEY,
+  },
+  gasReporter: {
+    currency: 'USD',
+    gasPrice: 200,
+    // enabled: process.env.REPORT_GAS ? true : false,
+  },
   networks: {
+    goerli: createTestnetConfig('goerli'),
     hardhat: {
-      accounts: {
-        mnemonic: MNEMONIC,
-      },
+      accounts,
       chainId: chainIds.hardhat,
     },
-    mainnet: createTestnetConfig('mainnet'),
-    goerli: createTestnetConfig('goerli'),
     kovan: createTestnetConfig('kovan'),
+    mainnet: createTestnetConfig('mainnet'),
     rinkeby: {
       ...createTestnetConfig('rinkeby'),
       gas: 2100000,
@@ -78,21 +73,13 @@ const config: HardhatUserConfig = {
     ropsten: createTestnetConfig('ropsten'),
   },
   solidity: {
-    version: '0.8.4',
     settings: {
       optimizer: {
         enabled: true,
         runs: 1000,
       },
     },
-  },
-  etherscan: {
-    apiKey: ETHERSCAN_API_KEY,
-  },
-  gasReporter: {
-    currency: 'USD',
-    gasPrice: 200,
-    // enabled: process.env.REPORT_GAS ? true : false,
+    version: '0.8.4',
   },
   typechain: {
     outDir: 'typechain',

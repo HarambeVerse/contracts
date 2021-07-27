@@ -8,5 +8,5 @@
     "resolveJsonModule": true
   },
   "include": ["./test", "./contracts"],
-  "files": ["./hardhat.config.ts"]
+  "files": ["./hardhat.config.ts", "./test-accounts.ts"]
 }
