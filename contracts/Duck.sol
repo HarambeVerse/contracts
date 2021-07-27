@@ -6,6 +6,8 @@ import { SafeMath } from '@openzeppelin/contracts/utils/math/SafeMath.sol';
 
 import { DuckAccessControl } from './DuckAccessControl.sol';
 
+//import { console } from 'hardhat/console.sol';
+
 //
 //          ."'".
 //      .-./ _=_ \.-.
@@ -131,6 +133,12 @@ contract Duck is ERC20('Duck', 'DUCK'), DuckAccessControl {
     return _delegate(msg.sender, _delegatee);
   }
 
+  /// @notice Get the delegates
+  /// @param _delegator The address to delegate votes to
+  function delegates(address _delegator) external view returns(address delegatee_) {
+    delegatee_ = _delegates[_delegator];
+  }
+
   /// @notice Delegates votes from signatory to `_delegatee`
   /// @param _delegatee The address to delegate votes to
   /// @param _nonce The contract state required to match the signature
@@ -170,6 +178,7 @@ contract Duck is ERC20('Duck', 'DUCK'), DuckAccessControl {
       block.timestamp <= _expiry,
       'DUCK: delegateBySig: signature expired'
     );
+
     return _delegate(signatory, _delegatee);
   }
 
@@ -232,9 +241,8 @@ contract Duck is ERC20('Duck', 'DUCK'), DuckAccessControl {
   /// @param _delegatee The address of the delegatee account
   function _delegate(address _delegator, address _delegatee) internal virtual {
     address currentDelegate = _delegates[_delegator];
-    uint256 delegatorBalance = balanceOf(_delegator); // balance of underlying KIBs (not scaled);
+    uint256 delegatorBalance = balanceOf(_delegator); // balance of underlying DUCKs (not scaled);
     _delegates[_delegator] = _delegatee;
-
     emit DelegateChanged(_delegator, currentDelegate, _delegatee);
 
     _moveDelegates(currentDelegate, _delegatee, delegatorBalance);
