@@ -65,6 +65,15 @@ const config: HardhatUserConfig = {
     },
     kovan: createTestnetConfig('kovan'),
     mainnet: createTestnetConfig('mainnet'),
+    matic: {
+      accounts: {
+        count: 10,
+        initialIndex: 0,
+        mnemonic: MNEMONIC,
+        path: "m/44'/60'/0'/0",
+      },
+      url: 'https://rpc-mainnet.maticvigil.com/v1/476abba7bd6ae0c950a9880685600bace7e89ee9',
+    },
     rinkeby: {
       ...createTestnetConfig('rinkeby'),
       gas: 2100000,

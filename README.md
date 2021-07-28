@@ -2,6 +2,8 @@
 
 Contracts for Harambe Verse
 
+##### Duck address: [0x91B0D8beEa83cc9F7170b83E94B3a294e8e2ee59](https://polygonscan.com/address/0x91B0D8beEa83cc9F7170b83E94B3a294e8e2ee59)
+
 ## Usage
 
 ### Pre Requisites

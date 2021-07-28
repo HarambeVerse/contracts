@@ -48,7 +48,6 @@ abstract contract DuckAccessControl is AccessControl, Ownable {
   /// @notice setup minter role can only be set by dev
   /// @param _minter minter address
   function setupMinter(address _minter) external onlyDev {
-    require(_isContract(_minter), 'DuckAccessControl: Minter can only be a contract');
     _setupRole(MINTER_ROLE, _minter);
   }
 

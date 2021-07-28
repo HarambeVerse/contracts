@@ -1,65 +1,50 @@
-import {
-  defaultAbiCoder,
-  keccak256,
-  solidityPack,
-  toUtf8Bytes,
-} from 'ethers/lib/utils';
-import { BigNumber, Contract } from 'ethers';
+import { ECDSASignature, fromRpcSig } from 'ethereumjs-util';
+import { signTypedData_v4 } from 'eth-sig-util';
 
-const PERMIT_TYPEHASH = keccak256(
-  toUtf8Bytes(
-    'Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)',
-  ),
-);
-
-const DELEGATE_TYPEHASH = keccak256(
-  toUtf8Bytes('Delegation(address delegatee,uint256 nonce,uint256 expiry)'),
-);
-
-export const ADDRESS_ZERO = '0x0000000000000000000000000000000000000000';
-
-function getDomainSeparatorNoVersion(name: string, tokenAddress: string) {
-  return keccak256(
-    defaultAbiCoder.encode(
-      ['bytes32', 'bytes32', 'uint256', 'address'],
-      [
-        keccak256(
-          toUtf8Bytes(
-            'EIP712Domain(string name,uint256 chainId,address verifyingContract)',
-          ),
-        ),
-        keccak256(toUtf8Bytes(name)),
-        1,
-        tokenAddress,
-      ],
-    ),
+export const getSignatureFromTypedData = (
+  privateKey: string,
+  typedData: any,
+): ECDSASignature => {
+  const signature = signTypedData_v4(
+    Buffer.from(privateKey.substring(2, 66), 'hex'),
+    {
+      data: typedData,
+    },
   );
-}
 
-export async function getDelegateDigest(
-  token: Contract,
-  delegate: {
-    delegatee: string;
-    expiry: BigNumber;
+  return fromRpcSig(signature);
+};
+
+export const buildDelegateParams = (
+  chainId: number,
+  token: string,
+  delegatee: string,
+  nonce: string,
+  expiry: string,
+) => ({
+  domain: {
+    chainId,
+    name: 'Duck',
+    verifyingContract: token,
+    version: '1',
   },
-  nonce: BigNumber,
-): Promise<string> {
-  const name = await token.name();
-  const DOMAIN_SEPARATOR = getDomainSeparatorNoVersion(name, token.address);
-  return keccak256(
-    solidityPack(
-      ['bytes1', 'bytes1', 'bytes32', 'bytes32'],
-      [
-        '0x19',
-        '0x01',
-        DOMAIN_SEPARATOR,
-        keccak256(
-          defaultAbiCoder.encode(
-            ['bytes32', 'address', 'uint256', 'uint256'],
-            [DELEGATE_TYPEHASH, delegate.delegatee, nonce, delegate.expiry],
-          ),
-        ),
-      ],
-    ),
-  );
-}
+  message: {
+    delegatee,
+    expiry,
+    nonce,
+  },
+  primaryType: 'Delegate',
+  types: {
+    Delegate: [
+      { name: 'delegatee', type: 'address' },
+      { name: 'nonce', type: 'uint256' },
+      { name: 'expiry', type: 'uint256' },
+    ],
+    EIP712Domain: [
+      { name: 'name', type: 'string' },
+      { name: 'version', type: 'string' },
+      { name: 'chainId', type: 'uint256' },
+      { name: 'verifyingContract', type: 'address' },
+    ],
+  },
+});

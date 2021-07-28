@@ -51,6 +51,27 @@ contract Duck is DuckBase {
 
   mapping(address => address) internal _propositionPowerDelegates;
 
+  /// @notice mint 50k to team wallet and 10 to owner
+  /// @param _teamWallet the address of the team wallet
+  constructor(address _teamWallet) {
+    _mint(_teamWallet, 50000 * 10**18);
+    _mint(msg.sender, 10 * 10**18);
+  }
+
+  /// @notice mints an amount to an account only can be ran by minter
+  /// @param _to The address to mint to
+  /// @param _amount The amount to mint
+  function mint(address _to, uint256 _amount) public virtual onlyMinter {
+    _mint(_to, _amount);
+  }
+
+  /// @notice burns an amount to an account only can be ran by burner
+  /// @param _from The address to burn from
+  /// @param _amount The amount to burn
+  function burn(address _from, uint256 _amount) public virtual onlyBurner {
+    _burn(_from, _amount);
+  }
+
   /// @notice implements the permit function
   /// @param _owner the owner of the funds
   /// @param _spender the spender
@@ -69,7 +90,10 @@ contract Duck is DuckBase {
     bytes32 _s
   ) external {
     require(_owner != address(0), 'DUCK: permit: Not correct owner');
-    require(block.timestamp <= _deadline, 'DUCK: permit: deadline already passed');
+    require(
+      block.timestamp <= _deadline,
+      'DUCK: permit: deadline already passed'
+    );
 
     uint256 currentValidNonce = _nonces[_owner];
     bytes32 digest = keccak256(
@@ -89,7 +113,10 @@ contract Duck is DuckBase {
       )
     );
 
-    require(_owner == ecrecover(digest, _v, _r, _s), 'DUCK: permit: invalid signature');
+    require(
+      _owner == ecrecover(digest, _v, _r, _s),
+      'DUCK: permit: invalid signature'
+    );
     _nonces[_owner] = currentValidNonce.add(1);
     _approve(_owner, _spender, _value);
   }
@@ -101,7 +128,6 @@ contract Duck is DuckBase {
   /// @param _from the from address
   /// @param _to the to address
   /// @param _amount the amount to transfer
-  ////
   function _beforeTokenTransfer(
     address _from,
     address _to,
@@ -134,7 +160,9 @@ contract Duck is DuckBase {
     );
   }
 
-  function _getDelegationDataByPower(DelegationPower delegationPower)
+  /// @notice get delegation data by power
+  /// @param _power the power querying by from
+  function _getDelegationDataByPower(DelegationPower _power)
     internal
     view
     override
@@ -144,7 +172,7 @@ contract Duck is DuckBase {
       mapping(address => address) storage delegates_
     )
   {
-    if (delegationPower == DelegationPower.Voting) {
+    if (_power == DelegationPower.Voting) {
       checkpoints_ = _votingCheckpoints;
       checkpointsCount_ = _votingCheckpointsCounts;
       delegates_ = _votingDelegates;
@@ -156,18 +184,18 @@ contract Duck is DuckBase {
   }
 
   /// @notice Delegates power from signatory to `delegatee`
-  /// @param delegatee The address to delegate votes to
-  /// @param delegationPower the type of delegation (VOTING_POWER, PROPOSITION_POWER)
-  /// @param nonce The contract state required to match the signature
-  /// @param expiry The time at which to expire the signature
+  /// @param _delegatee The address to delegate votes to
+  /// @param _power the power of delegation
+  /// @param _nonce The contract state required to match the signature
+  /// @param _expiry The time at which to expire the signature
   /// @param _v The recovery byte of the signature
   /// @param _r Half of the ECDSA signature pair
   /// @param _s Half of the ECDSA signature pair
   function delegateByPowerBySig(
-    address delegatee,
-    DelegationPower delegationPower,
-    uint256 nonce,
-    uint256 expiry,
+    address _delegatee,
+    DelegationPower _power,
+    uint256 _nonce,
+    uint256 _expiry,
     uint8 _v,
     bytes32 _r,
     bytes32 _s
@@ -175,48 +203,66 @@ contract Duck is DuckBase {
     bytes32 structHash = keccak256(
       abi.encode(
         DELEGATE_BY_POWER_TYPEHASH,
-        delegatee,
-        uint256(delegationPower),
-        nonce,
-        expiry
+        _delegatee,
+        uint256(_power),
+        _nonce,
+        _expiry
       )
     );
     bytes32 digest = keccak256(
       abi.encodePacked('\x19\x01', DOMAIN_SEPARATOR, structHash)
     );
     address signatory = ecrecover(digest, _v, _r, _s);
-    require(signatory != address(0), 'DUCK: delegateByPowerBySig: invalid signature');
-    require(nonce == _nonces[signatory]++, 'DUCK: delegateByPowerBySig: invalid nonce');
-    require(block.timestamp <= expiry, 'DUCK: delegateByPowerBySig: invalid expiration');
-    _delegateByPower(signatory, delegatee, delegationPower);
+    require(
+      signatory != address(0),
+      'DUCK: delegateByPowerBySig: invalid signature'
+    );
+    require(
+      _nonce == _nonces[signatory]++,
+      'DUCK: delegateByPowerBySig: invalid nonce'
+    );
+    require(
+      block.timestamp <= _expiry,
+      'DUCK: delegateByPowerBySig: invalid expiration'
+    );
+    _delegateByPower(signatory, _delegatee, _power);
   }
 
-  /// @notice Delegates power from signatory to `delegatee`
-  /// @param delegatee The address to delegate votes to
-  /// @param nonce The contract state required to match the signature
-  /// @param expiry The time at which to expire the signature
+  /// @notice Delegates power from signatory to `_delegatee`
+  /// @param _delegatee The address to delegate votes to
+  /// @param _nonce The contract state required to match the signature
+  /// @param _expiry The time at which to expire the signature
   /// @param _v The recovery byte of the signature
   /// @param _r Half of the ECDSA signature pair
   /// @param _s Half of the ECDSA signature pair
   function delegateBySig(
-    address delegatee,
-    uint256 nonce,
-    uint256 expiry,
+    address _delegatee,
+    uint256 _nonce,
+    uint256 _expiry,
     uint8 _v,
     bytes32 _r,
     bytes32 _s
   ) public {
     bytes32 structHash = keccak256(
-      abi.encode(DELEGATE_TYPEHASH, delegatee, nonce, expiry)
+      abi.encode(DELEGATE_TYPEHASH, _delegatee, _nonce, _expiry)
     );
     bytes32 digest = keccak256(
       abi.encodePacked('\x19\x01', DOMAIN_SEPARATOR, structHash)
     );
     address signatory = ecrecover(digest, _v, _r, _s);
-    require(signatory != address(0), 'DUCK: delegateByPowerBySig: invalid signature');
-    require(nonce == _nonces[signatory]++, 'DUCK: delegateByPowerBySig: invalid nonce');
-    require(block.timestamp <= expiry, 'DUCK: delegateByPowerBySig: invalid expiration');
-    _delegateByPower(signatory, delegatee, DelegationPower.Voting);
-    _delegateByPower(signatory, delegatee, DelegationPower.Proposition);
+    require(
+      signatory != address(0),
+      'DUCK: delegateByPowerBySig: invalid signature'
+    );
+    require(
+      _nonce == _nonces[signatory]++,
+      'DUCK: delegateByPowerBySig: invalid nonce'
+    );
+    require(
+      block.timestamp <= _expiry,
+      'DUCK: delegateByPowerBySig: invalid expiration'
+    );
+    _delegateByPower(signatory, _delegatee, DelegationPower.Voting);
+    _delegateByPower(signatory, _delegatee, DelegationPower.Proposition);
   }
 }
