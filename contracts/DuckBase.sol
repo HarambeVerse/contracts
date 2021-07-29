@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-import { ERC20 } from '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import { SafeMath } from '@openzeppelin/contracts/utils/math/SafeMath.sol';
 
 import { DuckAccessControl } from './DuckAccessControl.sol';
+import { ERC20 } from './open-zeppelin/ERC20.sol';
 
-abstract contract DuckBase is ERC20('Duck', 'DUCK'), DuckAccessControl {
+abstract contract DuckBase is ERC20, DuckAccessControl {
   using SafeMath for uint256;
-  bytes32 public constant DELEGATE_BY_POWER_TYPEHASH = keccak256(
-    'DelegateByPower(address delegatee,uint256 type,uint256 nonce,uint256 expiry)'
-  );
+  bytes32 public constant DELEGATE_BY_POWER_TYPEHASH =
+    keccak256(
+      'DelegateByPower(address delegatee,uint256 type,uint256 nonce,uint256 expiry)'
+    );
 
-  bytes32 public constant DELEGATE_TYPEHASH = keccak256(
-    'Delegate(address delegatee,uint256 nonce,uint256 expiry)'
-  );
+  bytes32 public constant DELEGATE_TYPEHASH =
+    keccak256('Delegate(address delegatee,uint256 nonce,uint256 expiry)');
 
   /// @notice A checkpoint for marking number of votes from a given block
   struct Checkpoint {
@@ -136,7 +136,10 @@ abstract contract DuckBase is ERC20('Duck', 'DUCK'), DuckAccessControl {
     address _delegatee,
     DelegationPower _power
   ) internal {
-    require(_delegatee != address(0), 'DUCK: _delegateByPower: invalid delegate');
+    require(
+      _delegatee != address(0),
+      'DUCK: _delegateByPower: invalid delegate'
+    );
 
     (
       ,
@@ -189,15 +192,16 @@ abstract contract DuckBase is ERC20('Duck', 'DUCK'), DuckAccessControl {
       } else {
         previous = balanceOf(_from);
       }
+      uint256 newVal = previous.sub(_amount);
 
       _writeCheckpoint(
         checkpoints,
         checkpointsCounts,
         _from,
-        uint128(previous.sub(_amount))
+        uint128(newVal)
       );
 
-      emit DelegatedPowerChanged(_from, previous.sub(_amount), _power);
+      emit DelegatedPowerChanged(_from, newVal, _power);
     }
     if (_to != address(0)) {
       uint256 previous = 0;
@@ -208,14 +212,16 @@ abstract contract DuckBase is ERC20('Duck', 'DUCK'), DuckAccessControl {
         previous = balanceOf(_to);
       }
 
+      uint256 newVal = previous.add(_amount);
+
       _writeCheckpoint(
         checkpoints,
         checkpointsCounts,
         _to,
-        uint128(previous.add(_amount))
+        uint128(newVal)
       );
 
-      emit DelegatedPowerChanged(_to, previous.add(_amount), _power);
+    emit DelegatedPowerChanged(_to, newVal, _power);
     }
   }
 
@@ -230,7 +236,10 @@ abstract contract DuckBase is ERC20('Duck', 'DUCK'), DuckAccessControl {
     address _user,
     uint256 _blockNumber
   ) internal view returns (uint256 checkpoint_) {
-    require(_blockNumber <= block.number, 'DUCK: _searchByBlockNumber: invalid block number');
+    require(
+      _blockNumber <= block.number,
+      'DUCK: _searchByBlockNumber: invalid block number'
+    );
 
     uint256 checkpointsCount = _checkpointsCounts[_user];
 

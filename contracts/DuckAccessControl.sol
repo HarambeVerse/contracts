@@ -20,6 +20,8 @@ abstract contract DuckAccessControl is AccessControl, Ownable {
     _;
   }
 
+  event MinterAdded(address minter);
+
   /// @notice setup a burner role can only be set by dev
   /// @param _burner burner address
   function setupBurner(address _burner) external onlyOwner {
@@ -48,7 +50,10 @@ abstract contract DuckAccessControl is AccessControl, Ownable {
   /// @notice setup minter role can only be set by dev
   /// @param _minter minter address
   function setupMinter(address _minter) external onlyDev {
+    require(_isContract(_minter), 'DuckAccessControl: Minter can only be a contract');
     _setupRole(MINTER_ROLE, _minter);
+
+    emit MinterAdded(_minter);
   }
 
   /// @notice assign owner to dev

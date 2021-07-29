@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-import { ERC20 } from '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import { SafeMath } from '@openzeppelin/contracts/utils/math/SafeMath.sol';
+
+import { ERC20 } from './open-zeppelin/ERC20.sol';
+
+import { IDuckVesting } from './interfaces/IDuckVesting.sol';
 
 import { DuckAccessControl } from './DuckAccessControl.sol';
 import { DuckBase } from './DuckBase.sol';
-
-//import { console } from 'hardhat/console.sol';
 
 //
 //          ."'".
@@ -25,14 +26,24 @@ import { DuckBase } from './DuckBase.sol';
 /// @notice Duck the main utility token of the HarambeVerse eco-system.
 contract Duck is DuckBase {
   using SafeMath for uint256;
-  /// @notice owner => next valid nonce to submit with permit()
-  mapping(address => uint256) public _nonces;
 
-  mapping(address => mapping(uint256 => Checkpoint)) public _votingCheckpoints;
+  string internal constant NAME = 'Duck Token';
+  string internal constant SYMBOL = 'DUCK';
+  uint8 internal constant DECIMALS = 18;
 
-  mapping(address => uint256) public _votingCheckpointsCounts;
+  uint256 public constant VESTING_AMOUNT = 50 * 1000 * 10**18;
+  uint256 public constant INIT_AMOUNT = 10 * 10**18;
 
-  bytes32 public DOMAIN_SEPARATOR;
+  bytes32 public DOMAIN_SEPARATOR = keccak256(
+    abi.encode(
+      EIP712_DOMAIN,
+      keccak256(bytes(NAME)),
+      keccak256(EIP712_REVISION),
+      block.chainid,
+      address(this)
+    )
+  );
+
   bytes public constant EIP712_REVISION = bytes('1');
   bytes32 internal constant EIP712_DOMAIN =
     keccak256(
@@ -40,41 +51,74 @@ contract Duck is DuckBase {
     );
   bytes32 public constant PERMIT_TYPEHASH =
     keccak256(
-      'Permit(address owner,address spender,uint256 _value,uint256 nonce,uint256 deadline)'
+      'Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)'
     );
 
+  mapping(address => uint256) public _nonces;
+
+  mapping(address => mapping(uint256 => Checkpoint)) public _votingCheckpoints;
+  mapping(address => uint256) public _votingCheckpointsCounts;
   mapping(address => address) internal _votingDelegates;
 
   mapping(address => mapping(uint256 => Checkpoint))
     internal _propositionPowerCheckpoints;
   mapping(address => uint256) internal _propositionPowerCheckpointsCounts;
-
   mapping(address => address) internal _propositionPowerDelegates;
 
-  /// @notice mint 50k to team wallet and 10 to owner
-  /// @param _teamWallet the address of the team wallet
-  constructor(address _teamWallet) {
-    _mint(_teamWallet, 50000 * 10**18);
-    _mint(msg.sender, 10 * 10**18);
+  constructor() ERC20(NAME, SYMBOL) {
+    _mint(msg.sender, INIT_AMOUNT);
+  }
+
+  /// @notice initialises vesting for team wallet
+  /// @param _beneficiary address to which tokens will be granted
+  /// @param _totalAmount the total amount of tokens deposited
+  /// @param _vestingAmount numbers from total amount to be vested
+  /// @param _startDay start day of the besting
+  /// @param _cliffDuration duration of the cliff, with respect to the grant start day, in days
+  /// @param _duration duration of the vesting schedule, with respect to the grant start day, in days
+  /// @param _interval number of days between vesting increases
+  function initVesting(
+    address _vestingAddress,
+    address _beneficiary,
+    uint256 _totalAmount,
+    uint256 _vestingAmount,
+    uint32 _startDay,
+    uint32 _duration,
+    uint32 _cliffDuration,
+    uint32 _interval
+  ) external virtual onlyOwner {
+    _mint(address(this), VESTING_AMOUNT);
+
+    IDuckVesting duckVesting = IDuckVesting(_vestingAddress);
+    duckVesting.grantVestingTokens(
+      _beneficiary,
+      _totalAmount,
+      _vestingAmount,
+      _startDay,
+      _duration,
+      _cliffDuration,
+      _interval,
+      false
+    );
   }
 
   /// @notice mints an amount to an account only can be ran by minter
   /// @param _to The address to mint to
   /// @param _amount The amount to mint
-  function mint(address _to, uint256 _amount) public virtual onlyMinter {
+  function mint(address _to, uint256 _amount) external virtual onlyMinter {
     _mint(_to, _amount);
   }
 
   /// @notice burns an amount to an account only can be ran by burner
   /// @param _from The address to burn from
   /// @param _amount The amount to burn
-  function burn(address _from, uint256 _amount) public virtual onlyBurner {
+  function burn(address _from, uint256 _amount) external virtual onlyBurner {
     _burn(_from, _amount);
   }
 
   /// @notice implements the permit function
   /// @param _owner the owner of the funds
-  /// @param _spender the spender
+  /// @param _spender the _spender
   /// @param _value the amount
   /// @param _deadline the deadline timestamp, type(uint256).max for no deadline
   /// @param _v signature param
@@ -89,12 +133,8 @@ contract Duck is DuckBase {
     bytes32 _r,
     bytes32 _s
   ) external {
-    require(_owner != address(0), 'DUCK: permit: Not correct owner');
-    require(
-      block.timestamp <= _deadline,
-      'DUCK: permit: deadline already passed'
-    );
-
+    require(_owner != address(0), 'DUCK:: owner invalid');
+    require(block.timestamp <= _deadline, 'Duck:: invalid deadline');
     uint256 currentValidNonce = _nonces[_owner];
     bytes32 digest = keccak256(
       abi.encodePacked(
@@ -115,7 +155,7 @@ contract Duck is DuckBase {
 
     require(
       _owner == ecrecover(digest, _v, _r, _s),
-      'DUCK: permit: invalid signature'
+      'Duck:: invalid signature'
     );
     _nonces[_owner] = currentValidNonce.add(1);
     _approve(_owner, _spender, _value);
@@ -262,6 +302,7 @@ contract Duck is DuckBase {
       block.timestamp <= _expiry,
       'DUCK: delegateByPowerBySig: invalid expiration'
     );
+
     _delegateByPower(signatory, _delegatee, DelegationPower.Voting);
     _delegateByPower(signatory, _delegatee, DelegationPower.Proposition);
   }

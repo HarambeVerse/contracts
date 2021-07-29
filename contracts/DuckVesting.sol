@@ -5,9 +5,12 @@ import { Ownable } from '@openzeppelin/contracts/access/Ownable.sol';
 import { SafeMath } from '@openzeppelin/contracts/utils/math/SafeMath.sol';
 import { AccessControl } from '@openzeppelin/contracts/access/AccessControl.sol';
 import { SafeERC20 } from '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import { IERC20 } from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import { IDuckVesting } from './interfaces/IDuckVesting.sol';
 
-contract DuckVesting is Ownable, AccessControl {
+contract DuckVesting is IDuckVesting, Ownable, AccessControl {
   using SafeMath for uint256;
+  using SafeERC20 for IERC20;
 
   /// @notice 1000 years in days for sanity checking
   /// rounded up from https://www.unitsconverters.com/en/Thousandyears-To-Day/Unittounit-5987-97
@@ -41,14 +44,12 @@ contract DuckVesting is Ownable, AccessControl {
   /// @param wasRevoked true if this vesting schedule was revoked
   /// @param startDay start day of the grant, in days since the UNIX epoch (start of day)
   /// @param amount total number of tokens that vest
-  /// @param vestingLocation address of wallet that is holding the vesting schedule
   /// @param grantor grantor that made the grant
   struct TokenGrant {
     bool isActive;
     bool wasRevoked;
     uint32 startDay;
     uint256 amount;
-    address vestingLocation;
     address grantor;
   }
 
@@ -75,8 +76,8 @@ contract DuckVesting is Ownable, AccessControl {
   /// @param _amount amount attempting to claim
   modifier onlyIfFundsAvailableNow(address _beneficiary, uint256 _amount) {
     require(
-      _fundsAreAvailableOn(_beneficiary, amount, today()),
-      balanceOf(account) < amount
+      _fundsAreAvailableOn(_beneficiary, _today(), _amount),
+      _beneficiaryAllowance[_beneficiary] < _amount
         ? 'DuckAccessControl: insufficient funds'
         : 'DuckAccessControl: insufficient vested funds'
     );
@@ -90,12 +91,29 @@ contract DuckVesting is Ownable, AccessControl {
   /// @notice tracks amount to be paid by vesting to beneficiary
   mapping(address => uint256) private _beneficiaryAllowance;
   /// @notice the reference to the duck token
-  SafeERC20 public duckToken;
+  IERC20 public duckToken;
+
+  event GrantRevoked(address _beneficiary, uint32 _onDayOrToday);
+
+  event VestingScheduleCreated(
+    address _beneficiary,
+    uint32 _cliffDuration,
+    uint32 _duration,
+    uint32 _interval,
+    bool _isRevocable
+  );
+
+  event VestingTokensGranted(
+    address _beneficiary,
+    uint256 _vestingAmount,
+    uint32 _startDay,
+    address _grantor
+  );
 
   /// @notice the initiation of the vesting contract
   /// @param _duckTokenAddress the address for the duck token
-  constructor(address _duckTokenAddress) public {
-    duckToken = SafeERC20(_duckTokenAddress);
+  constructor(address _duckTokenAddress) {
+    duckToken = IERC20(_duckTokenAddress);
   }
 
   /// @notice setup a burner role can only be set by dev
@@ -122,7 +140,7 @@ contract DuckVesting is Ownable, AccessControl {
     uint32 _cliffDuration,
     uint32 _interval,
     bool _isRevocable
-  ) external onlyGrantor returns (bool done_) {
+  ) external override onlyGrantor returns (bool done_) {
     require(
       !_tokenGrants[_beneficiary].isActive,
       'DuckVesting: _grantVestingTokens: grant already exists'
@@ -219,9 +237,9 @@ contract DuckVesting is Ownable, AccessControl {
     );
 
     require(
-      vestingAmount <= totalAmount &&
-        vestingAmount > 0 &&
-        startDay >= block.timestamp,
+      _vestingAmount <= _totalAmount &&
+        _vestingAmount > 0 &&
+        _startDay >= block.timestamp,
       'DuckVesting: _grantVestingTokens: invalid vesting params'
     );
 
@@ -234,23 +252,21 @@ contract DuckVesting is Ownable, AccessControl {
       false,
       _startDay,
       _vestingAmount,
-      _vestingLocation,
       _grantor
     );
 
     emit VestingTokensGranted(
-      beneficiary,
-      vestingAmount,
-      startDay,
-      vestingLocation,
-      grantor
+      _beneficiary,
+      _vestingAmount,
+      _startDay,
+      _grantor
     );
 
     done_ = true;
   }
 
   /// @notice gets today
-  function today() external view returns (uint32 today_) {
+  function _today() internal view returns (uint32 today_) {
     today_ = uint32(block.timestamp / SECONDS_PER_DAY);
   }
 
@@ -261,7 +277,7 @@ contract DuckVesting is Ownable, AccessControl {
     view
     returns (uint32 effectiveDay_)
   {
-    effectiveDay_ = _onDayOrToday == 0 ? today() : _onDayOrToday;
+    effectiveDay_ = _onDayOrToday == 0 ? _today() : _onDayOrToday;
   }
 
   /// @notice gets amount that has not been vested to account
@@ -309,8 +325,8 @@ contract DuckVesting is Ownable, AccessControl {
   /// @notice gets available amount based on allowance
   /// @param _beneficiary address to which tokens have been granted
   /// @param _onDayOrToday the day to check for, in days since the UNIX epoch
-  function vestingForAccountAsOf(address _beneficiary, uint32 _onDayOrToday)
-    external
+  function _vestingForAccountAsOf(address _beneficiary, uint32 _onDayOrToday)
+    internal
     view
     onlyGrantOrBeneficiary(_beneficiary)
     returns (
@@ -346,6 +362,7 @@ contract DuckVesting is Ownable, AccessControl {
   function vestingAsOf(uint32 _onDayOrToday)
     external
     view
+    override
     returns (
       uint256,
       uint256,
@@ -358,7 +375,7 @@ contract DuckVesting is Ownable, AccessControl {
       bool
     )
   {
-    return vestingForAccountAsOf(msg.sender, _onDayOrToday);
+    return _vestingForAccountAsOf(msg.sender, _onDayOrToday);
   }
 
   /// @notice checks if the account has sufficient funds available to cover the given amount
@@ -370,7 +387,7 @@ contract DuckVesting is Ownable, AccessControl {
     uint32 _onDayOrToday,
     uint256 _amount
   ) internal view returns (bool isAvailable_) {
-    isAvailable_ = _amount <= _getAvailableAmount(account, _onDayOrToday);
+    isAvailable_ = _amount <= _getAvailableAmount(_beneficiary, _onDayOrToday);
   }
 
   /// @notice revoke beneficiary and send back to grantor
@@ -378,6 +395,7 @@ contract DuckVesting is Ownable, AccessControl {
   /// @param _onDayOrToday the day to check for, in days since the UNIX epoch
   function revokeGrant(address _beneficiary, uint32 _onDayOrToday)
     external
+    override
     onlyGrantor
     returns (bool done_)
   {
@@ -391,8 +409,14 @@ contract DuckVesting is Ownable, AccessControl {
     );
     require(grant.isActive, 'DuckVesting: no active grant');
     require(vesting.isRevocable, 'DuckVesting: irrevocable');
-    require(_onDayOrToday <= grant.startDay + vesting.duration, 'DuckVesting: no effect');
-    require(_onDayOrToday >= today(), 'DuckVesting: cannot revoke vested holdings');
+    require(
+      _onDayOrToday <= grant.startDay + vesting.duration,
+      'DuckVesting: no effect'
+    );
+    require(
+      _onDayOrToday >= _today(),
+      'DuckVesting: cannot revoke vested holdings'
+    );
 
     notVestedAmount = _getNotVestedAmount(_beneficiary, _onDayOrToday);
 
@@ -406,7 +430,15 @@ contract DuckVesting is Ownable, AccessControl {
   }
 
   /// @notice allows beneficiary to withdraw available funds.
-  function withdraw(uint256 _value) external onlyIfFundsAvailableNow(msg.sender, value) returns (bool done_) {
-    done_ = duckToken.safeTransfer(msg.sender, _value);
+  function withdraw(uint256 _value)
+    external
+    override
+    onlyIfFundsAvailableNow(msg.sender, _value)
+    returns (bool done_)
+  {
+    duckToken.safeTransfer(msg.sender, _value);
+    _beneficiaryAllowance[msg.sender] -= _value;
+
+    done_ = true;
   }
 }
